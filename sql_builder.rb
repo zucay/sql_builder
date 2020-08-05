@@ -1,6 +1,7 @@
 #!/usr/bin/env ruby
 
 require 'erb'
+require 'pry'
 
 class SQLBuilder
   @@with_first_time = true
@@ -17,12 +18,17 @@ class SQLBuilder
   end
 
   def self.import sql_file
-    print open(sql_file).read
+    open(sql_file).read
   end
 
   def self.render(sql_file)
-    print sql_file
-    print ERB.new(open(sql_file).read).result
+    dir, base, ext = [File.dirname(sql_file), File.basename(sql_file), File.extname(sql_file)]
+    rendered_file = File.join(dir, "out_#{base}#{ext}")
+    @@fo = File.open(rendered_file, 'w')
+    @@fo.print "-- THIS FILE IS RENDERED BY SQL_BUILDER https://github.com/zucay/sql_builder\n\n"
+    out = ERB.new(open(sql_file).read).result
+    @@fo.print out
+    @@fo.close
   end
 end
 
