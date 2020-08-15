@@ -23,6 +23,7 @@ class SQLBuilder
 
   def self.render(sql_file)
     dir, base, ext = [File.dirname(sql_file), File.basename(sql_file), File.extname(sql_file)]
+    Dir.chdir(dir)
     rendered_file = File.join(dir, "out_#{base}#{ext}")
     @@fo = File.open(rendered_file, 'w')
     @@fo.print "-- THIS FILE IS RENDERED BY SQL_BUILDER https://github.com/zucay/sql_builder\n\n"
