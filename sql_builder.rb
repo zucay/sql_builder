@@ -68,7 +68,7 @@ class SQLTextNode < FileNode
   def build
     body = ancestors.map do |ancestor|
       ancestor.lines.join
-    end.join(", \n")
+    end.join(", ")
     out = "WITH #{body}"
     out
   end
