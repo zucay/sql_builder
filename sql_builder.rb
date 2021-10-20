@@ -7,7 +7,6 @@ class FileNode
   attr_accessor :path, :parents, :lines
   def initialize(path)
     ab_path = File.expand_path(path)
-
     @base_name = File.basename(path)
     @path = ab_path
     @parents = []
@@ -17,12 +16,13 @@ class FileNode
   end
 
   def ancestors
-    @parents.map do |parent|
+    out = @parents.map do |parent|
       parent.ancestors
-    end.uniq.flatten
+    end
+    [self, out].flatten.uniq
   end
 
-  # uniq メソッド内部で呼ばれる
+  # call from #uniq
   def eql?(other)
     return false unless other.is_a?(Text)
     if other.path == self.path
@@ -32,9 +32,12 @@ class FileNode
   end
 
   def render
-    output_path = "#{Time.now.strftime('%y%m%d_%H%m')}_#{@base_name}.sql"
+    dir = File.dirname(@path)
+    output_path = "#{dir}/#{Time.now.strftime('%y%m%d_%H%m')}_#{@base_name}.sql"
     fo = open(output_path, 'w')
+
     fo.write(build)
+
     fo.close
     `pbcopy < #{output_path}`
   end
@@ -44,6 +47,7 @@ class FileNode
     fail
   end
 
+  # need to implement on subclass
   def build
     fail
   end
@@ -53,6 +57,7 @@ class SQLTextNode < FileNode
   def read_file
     open(@path).each do |line|
       if line =~ /^--\s*with_import\s['"](.*)['"]/
+        Dir.chdir(File.dirname(@path))
         @parents << SQLWithClause.new($1)
       else
         @lines << line
@@ -61,10 +66,10 @@ class SQLTextNode < FileNode
   end
 
   def build
-    head = ancestors.map do |ancestor|
+    body = ancestors.map do |ancestor|
       ancestor.lines.join
     end.join(", \n")
-    out = "WITH #{head} \n" + @lines.join
+    out = "WITH #{body}"
     out
   end
 
