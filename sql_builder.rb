@@ -5,10 +5,10 @@ require 'pry'
 
 class FileNode
   attr_accessor :path, :parents, :lines
-  def initialize(path)
-    ab_path = File.expand_path(path)
-    @base_name = File.basename(path)
-    @path = ab_path
+  def initialize(file)
+    @base_name = File.basename(file)
+
+    @path = File.absolute_path(file)
     @parents = []
     @lines = []
 
@@ -19,7 +19,7 @@ class FileNode
     out = @parents.map do |parent|
       parent.ancestors
     end
-    [self, out].flatten.uniq
+    [out, self].flatten.uniq
   end
 
   # call from #uniq
@@ -33,7 +33,7 @@ class FileNode
 
   def render
     dir = File.dirname(@path)
-    output_path = "#{dir}/#{Time.now.strftime('%y%m%d_%H%m')}_#{@base_name}.sql"
+    output_path = "#{dir}/out_#{Time.now.strftime('%y%m%d_%H%m')}_#{@base_name}"
     fo = open(output_path, 'w')
 
     fo.write(build)
@@ -58,7 +58,12 @@ class SQLTextNode < FileNode
     open(@path).each do |line|
       if line =~ /^--\s*with_import\s['"](.*)['"]/
         Dir.chdir(File.dirname(@path))
-        @parents << SQLWithClause.new($1)
+        begin
+          @parents << SQLTextNode.new($1)
+        rescue => e
+          fail "file error => #{@path} : #{e}"
+        end
+    
       else
         @lines << line
       end
@@ -66,24 +71,20 @@ class SQLTextNode < FileNode
   end
 
   def build
-    body = ancestors.map do |ancestor|
+    partials = ancestors.map do |ancestor|
       ancestor.lines.join
-    end.join(", ")
-    out = "WITH #{body}"
+    end
+
+    body = partials.pop
+    
+    out = "WITH #{partials.join(', ')} #{body}"
     out
   end
 
 end
 
-class SQLWithClause < SQLTextNode
-end
-
-class SQLMainText < SQLTextNode
-end
-
-
 if __FILE__ == $0
   fail 'set file' unless ARGV[0]
-  node = SQLMainText.new(ARGV[0])
+  node = SQLTextNode.new(ARGV[0])
   node.render
 end
