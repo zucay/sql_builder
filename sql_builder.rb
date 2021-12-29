@@ -2,13 +2,16 @@
 
 require 'erb'
 require 'pry'
-
+require 'fileutils'
 class FileNode
   attr_accessor :path, :parents, :lines
   def initialize(file)
     @base_name = File.basename(file)
 
     @path = File.absolute_path(file)
+    @@base_dir ||= File.dirname(@path)
+    Dir.chdir(@@base_dir)
+
     @parents = []
     @lines = []
 
@@ -32,7 +35,8 @@ class FileNode
   end
 
   def render
-    dir = File.dirname(@path)
+    dir = "#{@@base_dir}/built_sql"
+    FileUtils.mkdir_p(dir)
     output_path = "#{dir}/out_#{Time.now.strftime('%y%m%d_%H%m')}_#{@base_name}"
     fo = open(output_path, 'w')
 
@@ -57,13 +61,12 @@ class SQLTextNode < FileNode
   def read_file
     open(@path).each do |line|
       if line =~ /^--\s*with_import\s['"](.*)['"]/
-        Dir.chdir(File.dirname(@path))
         begin
           @parents << SQLTextNode.new($1)
         rescue => e
           fail "file error => #{@path} : #{e}"
         end
-    
+
       else
         @lines << line
       end
@@ -76,7 +79,7 @@ class SQLTextNode < FileNode
     end
 
     body = partials.pop
-    
+
     out = "WITH #{partials.join(', ')} #{body}"
     out
   end
